@@ -4,7 +4,7 @@ A security scanner for Model Context Protocol (MCP) servers (currently in early 
 
 ## Current Status
 
-⚠️ **This project is in very early development.** Most features are not yet implemented and exist only as architectural placeholders.
+ **This project is in very early development.** Most features are not yet implemented and exist only as architectural placeholders.
 
 ### What Works Now
 - Basic CLI structure with `scan`, `list-analyzers`, and `validate-config` commands
