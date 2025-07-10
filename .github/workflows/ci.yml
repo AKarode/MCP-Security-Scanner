@@ -1,0 +1,281 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+        exclude:
+          # Reduce matrix size for faster CI
+          - os: windows-latest
+            python-version: '3.9'
+          - os: macos-latest
+            python-version: '3.9'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+
+    - name: Run linting
+      run: |
+        flake8 src/ tests/
+        black --check src/ tests/
+        isort --check-only src/ tests/
+
+    - name: Run type checking
+      run: mypy src/
+
+    - name: Run security checks
+      run: bandit -r src/
+
+    - name: Run tests
+      run: |
+        pytest tests/ --cov=src --cov-report=xml --cov-report=html
+
+    - name: Upload coverage to Codecov
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  security-scan:
+    name: Security Scan (Self-Scan)
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install MCP Scanner
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Run MCP Scanner on itself
+      run: |
+        mcp-scanner scan . \
+          --output-format sarif \
+          --output-file security-report.sarif \
+          --fail-on-severity high
+
+    - name: Upload SARIF results to GitHub Security
+      if: always()
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: security-report.sarif
+
+    - name: Upload security report as artifact
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-report
+        path: security-report.sarif
+
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install memory-profiler
+
+    - name: Run performance tests
+      run: |
+        # Performance test on a large codebase
+        # This would be replaced with actual performance tests
+        pytest tests/performance/ -v
+
+    - name: Memory usage test
+      run: |
+        # Test memory usage
+        mprof run mcp-scanner scan tests/fixtures/large-project/
+        mprof plot -o memory-usage.png
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-results
+        path: |
+          memory-usage.png
+          .prof
+
+  integration-test:
+    name: Integration Testing
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install MCP Scanner
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Test CLI interface
+      run: |
+        # Test basic CLI functionality
+        mcp-scanner --version
+        mcp-scanner --help
+        mcp-scanner list-analyzers
+
+    - name: Test scanning real projects
+      run: |
+        # Test scanning actual projects
+        mcp-scanner scan tests/fixtures/python-project/ --output-format json
+        mcp-scanner scan tests/fixtures/javascript-project/ --output-format html
+        mcp-scanner scan tests/fixtures/mcp-server/ --analyzers mcp_permissions,mcp_tools
+
+    - name: Test configuration loading
+      run: |
+        # Test configuration file loading
+        mcp-scanner scan . --config tests/fixtures/test-config.yaml
+
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: [test, security-scan]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Build package
+      run: python -m build
+
+    - name: Check package
+      run: twine check dist/*
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist
+        path: dist/
+
+  docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install documentation dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install -r requirements-dev.txt
+
+    - name: Build documentation
+      run: |
+        cd docs/
+        make html
+
+    - name: Upload documentation
+      uses: actions/upload-artifact@v3
+      with:
+        name: documentation
+        path: docs/_build/html/
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [test, security-scan, build, docs]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist/
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
+
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false

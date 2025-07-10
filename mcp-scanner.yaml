@@ -1,0 +1,133 @@
+# MCP Scanner Configuration File
+# This file contains the default configuration for the MCP Security Scanner
+
+# Target settings
+target_path: "."
+include_patterns:
+  - "**/*.py"
+  - "**/*.js"
+  - "**/*.ts"
+  - "**/*.json"
+  - "**/*.yaml"
+  - "**/*.yml"
+  - "**/*.toml"
+  - "**/*.sh"
+  - "**/*.bash"
+  - "**/mcp.json"
+  - "**/mcp.yaml"
+
+exclude_patterns:
+  - "**/.git/**"
+  - "**/node_modules/**"
+  - "**/__pycache__/**"
+  - "**/venv/**"
+  - "**/.venv/**"
+  - "**/build/**"
+  - "**/dist/**"
+  - "**/.pytest_cache/**"
+  - "**/coverage/**"
+  - "**/*.min.js"
+  - "**/*.min.css"
+  - "**/test_fixtures/**"
+  - "**/mock_data/**"
+
+# Analyzer settings
+analyzers:
+  # Run all analyzers by default (null means all)
+  # Uncomment and modify to run specific analyzers:
+  # - "command_injection"
+  # - "secrets_detection"
+  # - "prompt_injection"
+  # - "mcp_permissions"
+  # - "mcp_tools"
+
+# Output settings
+output_format: "json"  # json, html, markdown, text
+output_file: null  # Set to a file path to save output
+
+# Scan behavior
+fail_on_severity: null  # critical, high, medium, low, info
+max_file_size: 10485760  # 10MB in bytes
+parallel_jobs: 4
+
+# Analyzer-specific configurations
+analyzer_configs:
+  secrets_detection:
+    entropy_threshold: 4.5
+    min_secret_length: 8
+    max_secret_length: 256
+    confidence_threshold: 0.6
+    custom_patterns: {}
+    whitelist_patterns: {}
+    
+  command_injection:
+    confidence_threshold: 0.7
+    dangerous_functions: {}
+    sanitization_functions: {}
+    
+  prompt_injection:
+    confidence_threshold: 0.7
+    prompt_patterns: {}
+    injection_patterns: {}
+    
+  mcp_permissions:
+    min_privilege_mode: true
+    dangerous_permissions: []
+    sensitive_resources: []
+    
+  mcp_tools:
+    dangerous_tool_types: []
+    restricted_capabilities: []
+    
+  sql_injection:
+    confidence_threshold: 0.7
+    dangerous_functions: {}
+    
+  path_traversal:
+    confidence_threshold: 0.7
+    dangerous_patterns: {}
+    
+  eval_injection:
+    confidence_threshold: 0.8
+    dangerous_functions: {}
+    
+  template_injection:
+    confidence_threshold: 0.7
+    template_engines: {}
+    
+  insecure_randomness:
+    confidence_threshold: 0.6
+    weak_functions: {}
+
+# Reporting settings
+reporting:
+  include_source_code: true
+  max_source_lines: 10
+  group_by_severity: true
+  sort_by: "severity"  # severity, file, type
+  
+# Performance settings
+performance:
+  enable_caching: true
+  cache_ttl: 3600  # 1 hour
+  max_memory_usage: 1073741824  # 1GB
+
+# Logging settings
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+# Integration settings
+integrations:
+  github_actions:
+    enabled: false
+    annotate_pr: true
+    fail_on_error: true
+    
+  gitlab_ci:
+    enabled: false
+    create_artifacts: true
+    
+  jenkins:
+    enabled: false
+    archive_reports: true

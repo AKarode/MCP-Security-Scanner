@@ -1,0 +1,26 @@
+# Development dependencies for MCP Scanner
+-r requirements.txt
+
+# Testing
+pytest>=7.0
+pytest-cov>=4.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.10.0
+
+# Code quality
+black>=22.0
+isort>=5.0
+flake8>=5.0
+mypy>=1.0
+bandit>=1.7.0
+
+# Development tools
+pre-commit>=2.0
+tox>=4.0
+sphinx>=5.0
+sphinx-rtd-theme>=1.0
+myst-parser>=0.18
+
+# Debugging and profiling
+ipdb>=0.13.0
+memory-profiler>=0.60.0
